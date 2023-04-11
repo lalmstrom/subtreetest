@@ -1,2 +1,4 @@
 # submod2
-README updatee
+README updated
+
+Testing subtree
