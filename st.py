@@ -26,10 +26,17 @@ class Subtree():
     def list(self):
         for k in sorted(self.trees.keys()):
             print(f"{k}: {self.trees[k]['remote']} ({self.trees[k]['commit']})")
+        
 
     def add(self, dest, remote, commit):
         self.trees[dest] = {"remote": remote, "commit": commit}
         run(f"git subtree -P {dest} add {remote} {commit} --squash")
+        self.store_json()
+        
+    def update(self, dest, commit):
+        remote = self.trees[dest]["remote"]
+        self.trees[dest]["commit"] = commit
+        run(f"git subtree -P {dest} pull {remote} {commit} --squash")
         self.store_json()
         
     def store_json(self):
@@ -54,6 +61,8 @@ def main():
         st.list()
     elif args.command == "add":
         st.add(args.subtree, args.remote, args.commit)
+    elif args.command == "update":
+        st.update(args.subtree, args.commit)
 
 if __name__ == "__main__":
     main()
