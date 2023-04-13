@@ -2,7 +2,7 @@
 
 import os
 import argparse
-import json
+import yaml
 import subprocess as sp
 
 def run(cmd):
@@ -11,58 +11,50 @@ def run(cmd):
 
 class Subtree():
 
-    def __init__(self, jsonpath):
-        self.jsonpath = jsonpath
-        if os.path.exists(jsonpath):
-            with open(jsonpath, "r") as fd:
-                self.trees = json.load(fd)
+    def __init__(self, confpath):
+        self.confpath = confpath
+        if os.path.exists(confpath):
+            with open(confpath, "r") as fd:
+                self.trees = yaml.safe_load(fd)
         else:
             self.trees = {}
             
     
-    def list_raw(self):
-        run("git log | grep git-subtree-dir | tr -d ' ' | cut -d ':' -f2 | sort | uniq")
-
     def list(self):
         for k in sorted(self.trees.keys()):
             print(f"{k}: {self.trees[k]['remote']} ({self.trees[k]['commit']})")
         
 
-    def add(self, dest, remote, commit):
-        self.trees[dest] = {"remote": remote, "commit": commit}
-        run(f"git subtree -P {dest} add {remote} {commit} --squash")
-        self.store_json()
-        
-    def update(self, dest, commit):
+    def add(self, dest):
         remote = self.trees[dest]["remote"]
-        self.trees[dest]["commit"] = commit
-        run(f"git subtree -P {dest} pull {remote} {commit} --squash")
-        self.store_json()
+        commit = self.trees[dest]["commit"]
+        run(f"git subtree -P {dest} add {remote} {commit} --squash")
         
-    def store_json(self):
-        with open(self.jsonpath, "w") as fd:
-            json.dump(self.trees, fd)
+    def update(self, dest):
+        remote = self.trees[dest]["remote"]
+        commit = self.trees[dest]["commit"]
+        run(f"git subtree -P {dest} pull {remote} {commit} --squash")
+
+    def sync(self):
+        for st in self.trees.keys():
+            if os.path.exists(st):
+                self.update(st)
+            else:
+                self.add(st)
         
 def main():
 
     parser = argparse.ArgumentParser(
         description="Manage subtrees")
-    parser.add_argument('command', choices=["add", "list", "list_raw", "update"])
-    parser.add_argument('--subtree')
-    parser.add_argument('--remote')
-    parser.add_argument('--commit')
+    parser.add_argument('command', choices=["list", "sync"])
     parser.add_argument('--verbose', action="store_true")
     args = parser.parse_args()
 
     st = Subtree(".subtrees")
-    if args.command == "list_raw":
-        st.list_raw()
-    elif args.command == "list":
+    if args.command == "list":
         st.list()
-    elif args.command == "add":
-        st.add(args.subtree, args.remote, args.commit)
-    elif args.command == "update":
-        st.update(args.subtree, args.commit)
+    elif args.command == "sync":
+        st.sync()
 
 if __name__ == "__main__":
     main()
